@@ -1,0 +1,18 @@
+:root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; background: #0b1220; color: #e8edf8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(circle at 90% 5%, #1f4c64, transparent 28rem), #0b1220; }
+main { width: min(100% - 2rem, 70rem); margin: 0 auto; padding: 3.5rem 0 7rem; }
+header { max-width: 42rem; }
+.eyebrow { color: #57d9b6; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; font-size: .78rem; }
+h1 { font-size: clamp(2.5rem, 8vw, 5rem); letter-spacing: -.06em; margin: .15rem 0; }
+.intro { color: #bac7dc; line-height: 1.55; font-size: 1.1rem; }
+.controls { margin: 2.5rem 0 1rem; display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }
+label { display: grid; gap: .35rem; color: #bac7dc; font-size: .85rem; }
+input, button { border-radius: .55rem; border: 1px solid #35506f; padding: .7rem .85rem; font: inherit; }
+input { background: #111e31; color: inherit; min-width: 7.5rem; }
+button { background: #57d9b6; border-color: #57d9b6; color: #071a1d; cursor: pointer; font-weight: 800; }
+.search { margin-left: auto; } .search input { min-width: min(18rem, 80vw); }.favorites-only { display: flex; align-items: center; gap: .45rem; padding-bottom: .15rem; white-space: nowrap; }.favorites-only input { min-width: 1rem; width: 1rem; height: 1rem; accent-color: #57d9b6; }
+#status { color: #93a7c3; min-height: 1.4rem; }
+.songs { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: .55rem; }
+.song { display: flex; gap: .8rem; align-items: center; padding: .8rem; border: 1px solid #263d59; border-radius: .75rem; background: rgb(12 26 45 / .7); }
+.rank { color: #57d9b6; font-variant-numeric: tabular-nums; width: 1.6rem; text-align: right; font-weight: 800; }.song div { display: grid; gap: .15rem; min-width: 0; flex: 1; }.song strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }.song span:not(.rank) { color: #9db0ca; font-size: .88rem; }.play, .favorite { padding: .45rem .65rem; font-size: .83rem; }.favorite { min-width: 2.4rem; color: #f7c948; background: transparent; border-color: #5e5b44; font-size: 1.15rem; line-height: 1; }.favorite.is-starred { background: #4f4218; border-color: #f7c948; } footer { color: #8194af; line-height: 1.5; font-size: .8rem; margin-top: 2rem; } audio { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); width: min(92vw, 42rem); } @media (max-width: 40rem) { main { padding-top: 2rem; }.search { margin-left: 0; width: 100%; }.search input { width: 100%; }.controls button { align-self: end; } }

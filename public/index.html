@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Year-End Radio</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Billboard year-end charts</p>
+        <h1>Year-End Radio</h1>
+        <p class="intro">Explore the top 100 songs of a year, then listen from your own local yt-dlp setup.</p>
+      </header>
+      <section class="controls" aria-label="Chart controls">
+        <label>Year <input id="year" type="number" min="1958" max="2026" value="1999" /></label>
+        <button id="load">Load top 100</button>
+        <label class="search">Filter songs <input id="filter" type="search" placeholder="Title or artist" /></label>
+        <label class="favorites-only"><input id="favorites-only" type="checkbox" /> Favorites only</label>
+      </section>
+      <p id="status" role="status">Loading 1999…</p>
+      <section id="songs" class="songs" aria-live="polite"></section>
+      <footer>Chart data is read from Wikipedia’s year-end Hot 100 pages. Playback searches public sources through yt-dlp; only use it for material you’re allowed to access.</footer>
+    </main>
+    <audio id="player" controls preload="none"></audio>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
