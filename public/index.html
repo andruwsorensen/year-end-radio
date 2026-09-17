@@ -20,11 +20,16 @@
         <button id="load">Load top 100</button>
         <label class="search">Filter songs <input id="filter" type="search" placeholder="Title or artist" /></label>
         <label class="favorites-only"><input id="favorites-only" type="checkbox" /> Favorites only</label>
+        <button id="favorite-stats-open" class="stats-open">Your stats</button>
       </section>
       <p id="status" role="status">Loading 1999…</p>
       <section id="songs" class="songs" aria-live="polite"></section>
       <footer>Chart data is read from Wikipedia’s year-end Hot 100 pages. Playback searches public sources through yt-dlp; only use it for material you’re allowed to access.</footer>
     </main>
+    <dialog id="favorite-stats-dialog" aria-labelledby="favorite-stats-title">
+      <div class="stats-dialog-heading"><h2 id="favorite-stats-title">Your favorite years</h2><button id="favorite-stats-close" class="dialog-close" aria-label="Close stats">×</button></div>
+      <section id="favorite-stats" class="favorite-stats" aria-live="polite"></section>
+    </dialog>
     <audio id="player" controls preload="none"></audio>
     <script type="module" src="app.js"></script>
   </body>

@@ -8,9 +8,11 @@ Start with 1999 or 2000, or enter any year from 1958 through the current year. S
 
 - Load up to 100 songs from a Billboard year-end Hot 100 chart.
 - Filter the current chart by title or artist.
+- Use a compact far-left play/pause control; the active song displays a pause icon.
 - Play a selected public audio source with local `yt-dlp`.
 - Scrub within a track: the app redirects the browser to yt-dlp’s resolved media URL instead of piping a one-way stream.
 - Save favorites locally and narrow the current year with **Favorites only**.
+- Open **Your stats** to see your favorite year, calculated from all favorites saved in this browser.
 
 ## Requirements
 
