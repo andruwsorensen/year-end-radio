@@ -5,10 +5,12 @@ Year-End Radio runs in Docker on `grow-server` and is available only inside the 
 ## Production address
 
 ```text
-https://grow-server.tail498d29.ts.net
+https://grow-server.tail498d29.ts.net:8443
 ```
 
 Tailscale access-control rules still apply. The container port is bound only to `127.0.0.1`, so it is not directly exposed to the LAN or public internet.
+
+Tailscale Serve uses port `8443` because grow-server's shared Caddy proxy already owns ports `80` and `443`.
 
 ## Deployment flow
 
