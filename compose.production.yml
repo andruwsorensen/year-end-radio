@@ -1,0 +1,16 @@
+name: year-end-radio
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: year-end-radio:local
+    init: true
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4173
+    ports:
+      - "127.0.0.1:4173:4173"
+

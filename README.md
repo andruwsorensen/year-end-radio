@@ -68,6 +68,16 @@ npm run check  # Syntax-check the app and run the queue tests
 
 Refresh the browser after changing client files in `public/`. Restart `npm start` after changing `server.mjs`.
 
+## Deployment
+
+Pushes to `main` are deployed to grow-server after the syntax checks, tests, and production image build pass. The deployed app is private to the Tailscale network:
+
+```text
+https://grow-server.tail498d29.ts.net
+```
+
+See [docs/deployment.md](docs/deployment.md) for the deployment flow, health checks, and grow-server maintenance commands.
+
 ## Project map
 
 ```text
@@ -75,6 +85,12 @@ year-end-radio/
 ├── server.mjs          # Local HTTP server, chart reader, and yt-dlp playback redirect
 ├── playback-source.mjs # Tested selection of the first playable media URL
 ├── package.json        # Start and syntax-check commands
+├── Dockerfile          # Node 22 image with yt-dlp
+├── compose.production.yml # Loopback-only grow-server service
+├── docs/
+│   └── deployment.md # CI/CD and server operations guide
+├── deploy/
+│   └── github-runner-year-end-radio.service # Dedicated CI runner service
 ├── public/
 │   ├── index.html      # Page structure and controls
 │   ├── app.js          # Chart loading, filtering, favorites, and player interaction
