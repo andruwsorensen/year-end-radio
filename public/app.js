@@ -56,6 +56,37 @@ function saveStoredValue(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function applySharedLibrary(library) {
+  favorites = library.favorites || {};
+  playlists = library.playlists || {};
+  repeatMode = ["off", "all", "one"].includes(library.playback?.repeat) ? library.playback.repeat : "off";
+  saveStoredValue(favoritesStorageKey, favorites);
+  saveStoredValue(playlistsStorageKey, playlists);
+  saveStoredValue(playbackStorageKey, { repeat: repeatMode });
+}
+
+async function libraryRequest(options = {}) {
+  const response = await fetch("/api/library", options);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "The shared library is unavailable.");
+  applySharedLibrary(data);
+  return data;
+}
+
+async function performLibraryAction(action) {
+  return libraryRequest({
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(action),
+  });
+}
+
+async function refreshSharedLibrary({ quiet = false } = {}) {
+  await libraryRequest({ cache: "no-store" });
+  render();
+  if (!quiet) status.textContent = "Shared favorites and playlists are up to date.";
+}
+
 function songKey(song) {
   return `${song.year}:${song.rank}`;
 }
@@ -228,11 +259,6 @@ function moveInQueue(direction, automatic = false) {
   playSong(playbackQueue[nextIndex], automatic && repeatMode === "one");
 }
 
-function savePlaybackSettings() {
-  saveStoredValue(playbackStorageKey, { repeat: repeatMode });
-  renderPlaybackControls();
-}
-
 function updateSongOptions() {
   if (!pendingPlaylistSong) return;
   const starred = Boolean(favorites[songKey(pendingPlaylistSong)]);
@@ -267,7 +293,7 @@ shuffleVisibleButton.addEventListener("click", () => {
   playSong(playbackQueue[0]);
 });
 
-playlistNew.addEventListener("click", () => {
+playlistNew.addEventListener("click", async () => {
   const name = playlistName.value.trim();
   if (!name) {
     status.textContent = "Enter a name for the new playlist.";
@@ -275,56 +301,61 @@ playlistNew.addEventListener("click", () => {
     return;
   }
   const id = globalThis.crypto?.randomUUID?.() || String(Date.now());
-  playlists[id] = { name, songs: [] };
-  saveStoredValue(playlistsStorageKey, playlists);
-  playlistName.value = "";
-  renderPlaylists(`custom:${id}`);
-  status.textContent = `Created ${name}.`;
-  render();
+  try {
+    await performLibraryAction({ type: "createPlaylist", id, name });
+    playlistName.value = "";
+    renderPlaylists(`custom:${id}`);
+    status.textContent = `Created ${name}.`;
+    render();
+  } catch (error) { status.textContent = error.message; }
 });
 playlistName.addEventListener("keydown", (event) => {
   if (event.key === "Enter") playlistNew.click();
 });
 
-playlistDelete.addEventListener("click", () => {
+playlistDelete.addEventListener("click", async () => {
   if (!playlistSelect.value.startsWith("custom:")) return;
   const id = playlistSelect.value.slice(7);
   if (!confirm(`Delete the playlist “${playlists[id].name}”?`)) return;
-  delete playlists[id];
-  saveStoredValue(playlistsStorageKey, playlists);
-  renderPlaylists("chart");
-  render();
+  try {
+    await performLibraryAction({ type: "deletePlaylist", id });
+    renderPlaylists("chart");
+    render();
+  } catch (error) { status.textContent = error.message; }
 });
 
-playlistSave.addEventListener("click", () => {
+playlistSave.addEventListener("click", async () => {
   const target = playlists[playlistTarget.value];
   if (!target || !pendingPlaylistSong) return;
-  if (!target.songs.some((song) => songKey(song) === songKey(pendingPlaylistSong))) target.songs.push(pendingPlaylistSong);
-  saveStoredValue(playlistsStorageKey, playlists);
-  status.textContent = `Added ${pendingPlaylistSong.title} to ${target.name}.`;
-  playlistDialog.close();
-  render();
+  try {
+    await performLibraryAction({ type: "addToPlaylist", id: playlistTarget.value, song: pendingPlaylistSong });
+    status.textContent = `Added ${pendingPlaylistSong.title} to ${target.name}.`;
+    playlistDialog.close();
+    render();
+  } catch (error) { status.textContent = error.message; }
 });
 
-songFavorite.addEventListener("click", () => {
+songFavorite.addEventListener("click", async () => {
   if (!pendingPlaylistSong) return;
   const key = songKey(pendingPlaylistSong);
-  if (favorites[key]) delete favorites[key];
-  else favorites[key] = pendingPlaylistSong;
-  saveStoredValue(favoritesStorageKey, favorites);
-  status.textContent = favorites[key] ? `Added ${pendingPlaylistSong.title} to Favorites.` : `Removed ${pendingPlaylistSong.title} from Favorites.`;
-  updateSongOptions();
-  render();
+  try {
+    await performLibraryAction({ type: "toggleFavorite", song: pendingPlaylistSong });
+    status.textContent = favorites[key] ? `Added ${pendingPlaylistSong.title} to Favorites.` : `Removed ${pendingPlaylistSong.title} from Favorites.`;
+    updateSongOptions();
+    render();
+  } catch (error) { status.textContent = error.message; }
 });
 
-playlistRemove.addEventListener("click", () => {
+playlistRemove.addEventListener("click", async () => {
   if (!pendingPlaylistSong || !playlistSelect.value.startsWith("custom:")) return;
   const id = playlistSelect.value.slice(7);
-  playlists[id].songs = playlists[id].songs.filter((song) => songKey(song) !== songKey(pendingPlaylistSong));
-  saveStoredValue(playlistsStorageKey, playlists);
-  status.textContent = `Removed ${pendingPlaylistSong.title} from ${playlists[id].name}.`;
-  playlistDialog.close();
-  render();
+  const name = playlists[id].name;
+  try {
+    await performLibraryAction({ type: "removeFromPlaylist", id, song: pendingPlaylistSong });
+    status.textContent = `Removed ${pendingPlaylistSong.title} from ${name}.`;
+    playlistDialog.close();
+    render();
+  } catch (error) { status.textContent = error.message; }
 });
 
 songs.addEventListener("click", (event) => {
@@ -352,9 +383,12 @@ songs.addEventListener("click", (event) => {
   }
 });
 
-repeatButton.addEventListener("click", () => {
-  repeatMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
-  savePlaybackSettings();
+repeatButton.addEventListener("click", async () => {
+  const nextRepeat = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off";
+  try {
+    await performLibraryAction({ type: "setRepeat", repeat: nextRepeat });
+    renderPlaybackControls();
+  } catch (error) { status.textContent = error.message; }
 });
 previousButton.addEventListener("click", () => moveInQueue(-1));
 nextButton.addEventListener("click", () => moveInQueue(1));
@@ -363,6 +397,20 @@ player.addEventListener("pause", render);
 player.addEventListener("ended", () => moveInQueue(1, true));
 player.addEventListener("error", () => { status.textContent = "This source could not be played. Try skipping to the next song."; });
 
-renderPlaylists("chart");
-renderPlaybackControls();
-loadChart();
+async function startApp() {
+  try { await refreshSharedLibrary({ quiet: true }); }
+  catch (error) { status.textContent = `${error.message} Using this browser's last saved copy.`; }
+  renderPlaylists("chart");
+  renderPlaybackControls();
+  await loadChart();
+}
+
+window.addEventListener("focus", () => refreshSharedLibrary({ quiet: true }).catch(() => {}));
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshSharedLibrary({ quiet: true }).catch(() => {});
+});
+setInterval(() => {
+  if (!document.hidden) refreshSharedLibrary({ quiet: true }).catch(() => {});
+}, 30_000);
+
+startApp();

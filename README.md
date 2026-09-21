@@ -2,7 +2,7 @@
 
 Year-End Radio is a small local web app for exploring Billboard year-end Hot 100 charts and playing a selected track through your own `yt-dlp` installation.
 
-Start with 1999 or 2000, or enter any year from 1958 through the current year. Starred songs stay saved in your browser with their chart year and rank.
+Start with 1999 or 2000, or enter any year from 1958 through the current year. Starred songs, custom playlists, and repeat mode are saved by the server, so they follow you to every device that opens the same app.
 
 ## Features
 
@@ -13,14 +13,14 @@ Start with 1999 or 2000, or enter any year from 1958 through the current year. S
 - See the current song’s artwork, title, and artist together in the fixed player, with a fallback when no thumbnail is available.
 - Scrub within a track: the app redirects the browser to yt-dlp’s resolved media URL instead of piping a one-way stream.
 - Prepare the next queue item in the background so skips and continuous playback start faster.
-- Save favorites locally and narrow the current year with **Favorites only**.
+- Save shared favorites and narrow the current year with **Favorites only**.
 - Play continuously through the visible songs by default.
 - Start a no-duplicates shuffled queue from every song in the current view, then skip forward or back through that order.
 - Cycle repeat through off, all, and one.
 - Use the automatic **Favorites** playlist or create custom playlists that can contain songs from different chart years.
 - Browse the automatic **Favorites** playlist by chart rank, from the lowest number upward.
 - Browse roomier song cards in a three-column desktop grid; song actions live under each card’s **•••** menu.
-- Open **Your stats** to see your favorite year, calculated from all favorites saved in this browser.
+- Open **Your stats** to see your favorite year, calculated from all favorites in the shared library.
 
 ## Requirements
 
@@ -55,7 +55,9 @@ Open [http://localhost:4173](http://localhost:4173). To stop the server, press `
 6. Name and create a custom playlist, then open a song’s **•••** menu to favorite it or manage its playlists.
 7. See the selected song’s artwork, title, and artist in the fixed player, then use its controls to go back, skip, or change repeat mode. Playback always continues automatically.
 
-Favorites, custom playlists, and playback settings are stored in this browser’s local storage. They survive refreshes and server restarts, but will not transfer to another browser profile, computer, or after clearing browser site data.
+Favorites, custom playlists, and playback settings are stored in `data/library.json` on the server. Browsers keep a last-known local copy only as a fallback if the server cannot be reached. The app refreshes shared data whenever its window regains focus and every 30 seconds while visible.
+
+Every browser using one Year-End Radio server shares the same library. The grow-server deployment is limited by Tailscale access rules; there is no separate account system inside the app.
 
 The queue is a snapshot of the visible songs when playback begins. The selected playlist supplies the songs, then the search and **Favorites only** filters can narrow that temporary queue. **Shuffle visible** randomizes that snapshot once, so each song appears exactly once in the shuffled order. Changing playlists or filters after playback starts does not replace the active queue. Repeat has three modes: **off** stops at the end, **all** wraps to the beginning, and **one** replays the current track when it ends.
 
@@ -63,7 +65,7 @@ The queue is a snapshot of the visible songs when playback begins. The selected 
 
 ```sh
 npm start      # Start the local app at http://localhost:4173
-npm run check  # Syntax-check the app and run the queue tests
+npm run check  # Syntax-check the app and run storage, playback, and queue tests
 ```
 
 Refresh the browser after changing client files in `public/`. Restart `npm start` after changing `server.mjs`.
@@ -83,6 +85,7 @@ See [docs/deployment.md](docs/deployment.md) for the deployment flow, health che
 ```text
 year-end-radio/
 ├── server.mjs          # Local HTTP server, chart reader, and yt-dlp playback redirect
+├── library-store.mjs   # Validated, atomic shared-library persistence
 ├── playback-source.mjs # Tested selection of the first playable media URL
 ├── package.json        # Start and syntax-check commands
 ├── Dockerfile          # Node 22 image with yt-dlp
@@ -98,6 +101,7 @@ year-end-radio/
 │   ├── styles.css      # Responsive visual styling
 │   └── favicon.svg     # App icon
 ├── test/
+│   ├── library-store.test.js   # Shared storage and multi-device action tests
 │   ├── playback-source.test.js # Playback URL selection tests
 │   └── player-state.test.js    # Queue behavior tests
 └── README.md
@@ -133,10 +137,10 @@ brew upgrade yt-dlp
 
 Confirm the year is between 1958 and the current year, check your internet connection, and try again. A missing page or changed Wikipedia table layout will display an error in the app.
 
-### Favorites disappeared
+### Shared favorites will not update
 
-They are stored in browser-local storage. Clearing site data or using another browser profile creates a separate favorites collection.
+Check `/api/library` on the same address as the app. If it is unavailable, the page uses that browser’s last-known copy and cannot save changes. On grow-server, confirm the Compose volume is mounted and inspect the app logs using the commands in `docs/deployment.md`.
 
 ## Small exercise
 
-Open `public/styles.css` and change `.now-playing-artwork` from `width: 7rem` to `width: 9rem`, then refresh the browser. This shows how the thumbnail aspect ratio and `object-fit: cover` work together.
+Run `curl -s http://localhost:4173/api/library` while the local server is running, favorite one song, and run it again. Look for the revision number increasing by one; this demonstrates how the browser and server coordinate each small library action.

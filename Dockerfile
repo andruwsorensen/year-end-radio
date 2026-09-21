@@ -8,8 +8,10 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY package.json ./
-COPY server.mjs playback-source.mjs ./
+COPY server.mjs playback-source.mjs library-store.mjs ./
 COPY public ./public
+
+RUN mkdir -p /app/data && chown node:node /app/data
 
 ENV NODE_ENV=production
 ENV PORT=4173

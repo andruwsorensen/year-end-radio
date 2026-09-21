@@ -36,6 +36,26 @@ The first HTTPS request can take about a minute while Tailscale obtains the Serv
 
 The health response must include `"ytdlpAvailable":true`; a running Node server without `yt-dlp` is not considered a successful deployment.
 
+## Shared library data
+
+Favorites, custom playlists, and repeat mode live in `/app/data/library.json` inside the container. Compose mounts the named volume `year-end-radio-data` at `/app/data`, so rebuilding or replacing the app container does not erase the library. Each write uses a temporary file followed by an atomic rename to avoid leaving a partial JSON file after an interruption.
+
+All devices opening this deployment share that library. Access is protected by the existing Tailscale Service policy rather than a second login inside Year-End Radio.
+
+Back up the library from any device on the tailnet:
+
+```sh
+curl -fsS https://year-end-radio.civet-nessie.ts.net/api/library > year-end-radio-library-backup.json
+```
+
+Restore a backup (this replaces the current shared library and increments its revision):
+
+```sh
+curl -fsS -X PUT -H 'content-type: application/json' --data-binary @year-end-radio-library-backup.json https://year-end-radio.civet-nessie.ts.net/api/library
+```
+
+The API accepts small action updates from normal app use so changes arriving from different devices are serialized instead of overwriting one another.
+
 The runner is managed by the checked-in `deploy/github-runner-year-end-radio.service` unit and uses the repository-specific `year-end-radio` label.
 
 ## Routine commands
@@ -47,6 +67,7 @@ cd ~/actions-runner/year-end-radio/_work/year-end-radio/year-end-radio
 docker compose -f compose.production.yml ps
 docker compose -f compose.production.yml logs --tail=100 app
 curl -fsS http://127.0.0.1:4173/api/health
+curl -fsS http://127.0.0.1:4173/api/library
 tailscale serve status
 curl -fsS https://year-end-radio.civet-nessie.ts.net/api/health
 ```
@@ -67,7 +88,7 @@ cd ~/actions-runner/year-end-radio/_work/year-end-radio/year-end-radio
 docker compose -f compose.production.yml down
 ```
 
-Stopping Compose does not remove the source checkout or the GitHub runner. Tailscale Serve will return an upstream error until the app starts again.
+Stopping Compose does not remove the source checkout, GitHub runner, or named data volume. Do not add `--volumes` when stopping the app unless you intentionally want to delete the shared library. Tailscale Serve will return an upstream error until the app starts again.
 
 ## Troubleshooting
 

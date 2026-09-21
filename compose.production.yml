@@ -11,6 +11,11 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4173
+      LIBRARY_FILE: /app/data/library.json
     ports:
       - "127.0.0.1:4173:4173"
+    volumes:
+      - year-end-radio-data:/app/data
 
+volumes:
+  year-end-radio-data:

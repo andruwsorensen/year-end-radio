@@ -3,9 +3,11 @@ import { createReadStream, existsSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { firstMediaUrl, MediaUrlCache } from "./playback-source.mjs";
+import { LibraryStore, LibraryValidationError } from "./library-store.mjs";
 
 const port = Number(process.env.PORT || 4173);
 const publicDir = join(process.cwd(), "public");
+const libraryStore = new LibraryStore(process.env.LIBRARY_FILE || join(process.cwd(), "data", "library.json"));
 const ytdlpAvailable = spawnSync("yt-dlp", ["--version"], { stdio: "ignore" }).status === 0;
 const mediaUrlCache = new MediaUrlCache(15 * 60 * 1000);
 const thumbnailUrlCache = new MediaUrlCache(24 * 60 * 60 * 1000);
@@ -14,6 +16,31 @@ const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; cha
 function sendJson(res, status, data) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
+}
+
+async function readJson(req) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > 5 * 1024 * 1024) throw new LibraryValidationError("Library data is too large.");
+    chunks.push(chunk);
+  }
+  try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+  catch { throw new LibraryValidationError("Request body must be valid JSON."); }
+}
+
+async function handleLibrary(req, res) {
+  try {
+    if (req.method === "GET") return sendJson(res, 200, await libraryStore.read());
+    if (req.method === "PUT") return sendJson(res, 200, await libraryStore.replace(await readJson(req)));
+    if (req.method === "PATCH") return sendJson(res, 200, await libraryStore.apply(await readJson(req)));
+    res.writeHead(405, { allow: "GET, PUT, PATCH" });
+    res.end();
+  } catch (error) {
+    const status = error instanceof LibraryValidationError ? 422 : 500;
+    sendJson(res, status, { error: status === 500 ? "The shared library could not be saved." : error.message });
+  }
 }
 
 function decodeHtml(value) {
@@ -133,6 +160,7 @@ async function sendArtwork(res, title, artist) {
 createServer(async (req, res) => {
   const requestUrl = new URL(req.url, `http://${req.headers.host}`);
   if (requestUrl.pathname === "/api/health") return sendJson(res, 200, { ytdlpAvailable });
+  if (requestUrl.pathname === "/api/library") return handleLibrary(req, res);
   if (requestUrl.pathname === "/api/chart") {
     try { return sendJson(res, 200, { songs: await chartFor(requestUrl.searchParams.get("year") || "") }); }
     catch (error) { return sendJson(res, 422, { error: error.message }); }

@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check public/app.js && node --test"
+    "check": "node --check server.mjs && node --check library-store.mjs && node --check public/app.js && node --test"
   }
 }
