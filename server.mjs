@@ -2,10 +2,13 @@ import { createServer } from "node:http";
 import { createReadStream, existsSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { firstMediaUrl, MediaUrlCache } from "./playback-source.mjs";
 
 const port = Number(process.env.PORT || 4173);
 const publicDir = join(process.cwd(), "public");
 const ytdlpAvailable = spawnSync("yt-dlp", ["--version"], { stdio: "ignore" }).status === 0;
+const mediaUrlCache = new MediaUrlCache(15 * 60 * 1000);
+const thumbnailUrlCache = new MediaUrlCache(24 * 60 * 60 * 1000);
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml" };
 
 function sendJson(res, status, data) {
@@ -29,25 +32,102 @@ async function chartFor(year) {
   return songs.slice(0, 100);
 }
 
-function playAudio(res, title, artist) {
-  if (!ytdlpAvailable) return sendJson(res, 503, { error: "yt-dlp is not installed. See README.md for the one-line install command." });
-  const query = `ytsearch1:${artist} - ${title} official audio`;
-  // Redirecting to yt-dlp's resolved media URL lets the browser make its own Range requests for seeking.
-  const child = spawn("yt-dlp", ["--no-playlist", "--no-warnings", "--get-url", "-f", "bestaudio[ext=webm]/bestaudio", query], { stdio: ["ignore", "pipe", "pipe"] });
-  let stdout = "";
-  let stderr = "";
-  child.stdout.on("data", (chunk) => { stdout += chunk.toString(); });
-  child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
-  child.on("error", () => { if (!res.headersSent) sendJson(res, 500, { error: "Could not start yt-dlp." }); });
-  child.on("close", (code) => {
-    const audioUrl = stdout.trim().split("\n")[0];
-    if (code === 0 && audioUrl?.startsWith("https://")) {
-      res.writeHead(302, { location: audioUrl, "cache-control": "no-store" });
-      return res.end();
-    }
-    if (!res.headersSent) sendJson(res, 502, { error: stderr || `yt-dlp stopped with code ${code}.` });
+function resolveAudioUrl(title, artist) {
+  const query = `ytsearch5:${artist} - ${title} official audio`;
+  // Search several candidates because the first result can be restricted even
+  // when another result is playable. Resolve as soon as yt-dlp prints a URL.
+  return new Promise((resolve, reject) => {
+    const child = spawn("yt-dlp", ["--no-playlist", "--no-warnings", "--get-url", "-f", "bestaudio[ext=webm]/bestaudio", query], { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const finishWithFirstMediaUrl = (processEnded = false) => {
+      const audioUrl = firstMediaUrl(stdout, processEnded);
+      if (!audioUrl || settled) return false;
+      settled = true;
+      resolve(audioUrl);
+      if (!child.killed) child.kill("SIGTERM");
+      return true;
+    };
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+      finishWithFirstMediaUrl();
+    });
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.on("error", () => {
+      if (!settled) {
+        settled = true;
+        reject(new Error("Could not start yt-dlp."));
+      }
+    });
+    child.on("close", (code) => {
+      if (finishWithFirstMediaUrl(true) || settled) return;
+      settled = true;
+      reject(new Error(stderr || `yt-dlp stopped with code ${code}.`));
+    });
   });
-  res.on("close", () => { if (!child.killed) child.kill("SIGTERM"); });
+}
+
+function cachedAudioUrl(title, artist) {
+  return mediaUrlCache.getOrResolve(title, artist, () => resolveAudioUrl(title, artist));
+}
+
+function resolveThumbnailUrl(title, artist) {
+  const query = `ytsearch1:${artist} - ${title} official audio`;
+  return new Promise((resolve, reject) => {
+    const child = spawn("yt-dlp", ["--no-playlist", "--no-warnings", "--skip-download", "--get-thumbnail", query], { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.on("error", () => reject(new Error("Could not start yt-dlp.")));
+    child.on("close", (code) => {
+      const thumbnailUrl = firstMediaUrl(stdout, true);
+      if (code === 0 && thumbnailUrl) resolve(thumbnailUrl);
+      else reject(new Error(stderr || "No artwork was found for this song."));
+    });
+  });
+}
+
+function cachedThumbnailUrl(title, artist) {
+  return thumbnailUrlCache.getOrResolve(title, artist, () => resolveThumbnailUrl(title, artist));
+}
+
+async function playAudio(res, title, artist) {
+  if (!ytdlpAvailable) return sendJson(res, 503, { error: "yt-dlp is not installed. See README.md for the one-line install command." });
+  try {
+    const audioUrl = await cachedAudioUrl(title, artist);
+    if (res.destroyed) return;
+    res.writeHead(302, { location: audioUrl, "cache-control": "no-store" });
+    res.end();
+  } catch (error) {
+    if (!res.headersSent && !res.destroyed) sendJson(res, 502, { error: error.message });
+  }
+}
+
+async function prepareAudio(res, title, artist) {
+  if (!ytdlpAvailable) return sendJson(res, 503, { error: "yt-dlp is not installed. See README.md for the one-line install command." });
+  try {
+    await cachedAudioUrl(title, artist);
+    if (!res.destroyed) {
+      res.writeHead(204, { "cache-control": "no-store" });
+      res.end();
+    }
+  } catch (error) {
+    if (!res.headersSent && !res.destroyed) sendJson(res, 502, { error: error.message });
+  }
+}
+
+async function sendArtwork(res, title, artist) {
+  if (!ytdlpAvailable) return sendJson(res, 503, { error: "yt-dlp is not installed. See README.md for the one-line install command." });
+  try {
+    const thumbnailUrl = await cachedThumbnailUrl(title, artist);
+    if (!res.destroyed) sendJson(res, 200, { thumbnailUrl });
+  } catch (error) {
+    if (!res.headersSent && !res.destroyed) sendJson(res, 502, { error: error.message });
+  }
 }
 
 createServer(async (req, res) => {
@@ -58,6 +138,8 @@ createServer(async (req, res) => {
     catch (error) { return sendJson(res, 422, { error: error.message }); }
   }
   if (requestUrl.pathname === "/api/play") return playAudio(res, requestUrl.searchParams.get("title") || "", requestUrl.searchParams.get("artist") || "");
+  if (requestUrl.pathname === "/api/prepare") return prepareAudio(res, requestUrl.searchParams.get("title") || "", requestUrl.searchParams.get("artist") || "");
+  if (requestUrl.pathname === "/api/artwork") return sendArtwork(res, requestUrl.searchParams.get("title") || "", requestUrl.searchParams.get("artist") || "");
   const safePath = normalize(requestUrl.pathname === "/" ? "/index.html" : requestUrl.pathname).replace(/^[/\\]+/, "");
   const file = join(publicDir, safePath);
   if (!file.startsWith(publicDir) || !existsSync(file)) return sendJson(res, 404, { error: "Not found" });

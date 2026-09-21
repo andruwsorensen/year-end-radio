@@ -22,6 +22,13 @@
         <label class="favorites-only"><input id="favorites-only" type="checkbox" /> Favorites only</label>
         <button id="favorite-stats-open" class="stats-open">Your stats</button>
       </section>
+      <section class="playlist-controls" aria-label="Playlist controls">
+        <label>Playlist <select id="playlist"></select></label>
+        <button id="shuffle-visible" class="secondary-button" disabled>Shuffle visible</button>
+        <label>New playlist <input id="playlist-name" type="text" maxlength="60" placeholder="Road trip" /></label>
+        <button id="playlist-new" class="secondary-button">Create</button>
+        <button id="playlist-delete" class="danger-button">Delete playlist</button>
+      </section>
       <p id="status" role="status">Loading 1999…</p>
       <section id="songs" class="songs" aria-live="polite"></section>
       <footer>Chart data is read from Wikipedia’s year-end Hot 100 pages. Playback searches public sources through yt-dlp; only use it for material you’re allowed to access.</footer>
@@ -30,7 +37,37 @@
       <div class="stats-dialog-heading"><h2 id="favorite-stats-title">Your favorite years</h2><button id="favorite-stats-close" class="dialog-close" aria-label="Close stats">×</button></div>
       <section id="favorite-stats" class="favorite-stats" aria-live="polite"></section>
     </dialog>
-    <audio id="player" controls preload="none"></audio>
+    <dialog id="playlist-dialog" aria-labelledby="playlist-dialog-title">
+      <div class="stats-dialog-heading"><h2 id="playlist-dialog-title">Song options</h2><button id="playlist-dialog-close" class="dialog-close" aria-label="Close song options">×</button></div>
+      <p id="playlist-song-name" class="playlist-song-name"></p>
+      <div class="song-option-actions">
+        <button id="song-favorite" class="favorite-option"></button>
+        <div id="playlist-add-options" class="playlist-add-options">
+          <label>Choose a playlist <select id="playlist-target"></select></label>
+          <button id="playlist-save">Add to playlist</button>
+        </div>
+        <p id="playlist-empty-hint" class="playlist-empty-hint" hidden>Create a custom playlist above, then return here to add this song.</p>
+        <button id="playlist-remove" class="danger-button">Remove from this playlist</button>
+      </div>
+    </dialog>
+    <section class="player-dock" aria-label="Playback controls">
+      <div class="now-playing" aria-live="polite">
+        <div id="now-playing-artwork" class="now-playing-artwork" role="img" aria-label="No song selected">
+          <img id="artwork-image" alt="" hidden />
+          <span id="artwork-placeholder" class="artwork-placeholder" aria-hidden="true">♪</span>
+        </div>
+        <div class="now-playing-details">
+          <strong id="now-playing-title">Nothing selected</strong>
+          <span id="now-playing-artist">Choose a song to begin</span>
+        </div>
+      </div>
+      <div class="transport-controls">
+        <button id="previous" class="player-button" aria-label="Previous song" title="Previous song">◀◀</button>
+        <button id="next" class="player-button" aria-label="Next song" title="Next song">▶▶</button>
+        <button id="repeat" class="player-button" aria-pressed="false" title="Repeat off">Repeat: off</button>
+      </div>
+      <audio id="player" controls preload="none"></audio>
+    </section>
     <script type="module" src="app.js"></script>
   </body>
 </html>

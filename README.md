@@ -10,8 +10,16 @@ Start with 1999 or 2000, or enter any year from 1958 through the current year. S
 - Filter the current chart by title or artist.
 - Use a compact far-left play/pause control; the active song displays a pause icon.
 - Play a selected public audio source with local `yt-dlp`.
+- See the current song’s artwork, title, and artist together in the fixed player, with a fallback when no thumbnail is available.
 - Scrub within a track: the app redirects the browser to yt-dlp’s resolved media URL instead of piping a one-way stream.
+- Prepare the next queue item in the background so skips and continuous playback start faster.
 - Save favorites locally and narrow the current year with **Favorites only**.
+- Play continuously through the visible songs by default.
+- Start a no-duplicates shuffled queue from every song in the current view, then skip forward or back through that order.
+- Cycle repeat through off, all, and one.
+- Use the automatic **Favorites** playlist or create custom playlists that can contain songs from different chart years.
+- Browse the automatic **Favorites** playlist by chart rank, from the lowest number upward.
+- Browse roomier song cards in a three-column desktop grid; song actions live under each card’s **•••** menu.
 - Open **Your stats** to see your favorite year, calculated from all favorites saved in this browser.
 
 ## Requirements
@@ -41,17 +49,21 @@ Open [http://localhost:4173](http://localhost:4173). To stop the server, press `
 
 1. Enter a year and select **Load top 100**.
 2. Filter by title or artist if needed.
-3. Select **Play** next to a song.
+3. Select **Play** next to a song for chart order, or **Shuffle visible** to randomize and start every currently visible song.
 4. Select ☆ to save a favorite; it changes to ★.
-5. Turn on **Favorites only** to see saved songs from the loaded year.
+5. Choose **Favorites** from the Playlist menu to see every favorite across all chart years.
+6. Name and create a custom playlist, then open a song’s **•••** menu to favorite it or manage its playlists.
+7. See the selected song’s artwork, title, and artist in the fixed player, then use its controls to go back, skip, or change repeat mode. Playback always continues automatically.
 
-Favorites are stored in this browser’s local storage. They survive refreshes and server restarts, but will not transfer to another browser profile, computer, or after clearing browser site data.
+Favorites, custom playlists, and playback settings are stored in this browser’s local storage. They survive refreshes and server restarts, but will not transfer to another browser profile, computer, or after clearing browser site data.
+
+The queue is a snapshot of the visible songs when playback begins. The selected playlist supplies the songs, then the search and **Favorites only** filters can narrow that temporary queue. **Shuffle visible** randomizes that snapshot once, so each song appears exactly once in the shuffled order. Changing playlists or filters after playback starts does not replace the active queue. Repeat has three modes: **off** stops at the end, **all** wraps to the beginning, and **one** replays the current track when it ends.
 
 ## Commands
 
 ```sh
 npm start      # Start the local app at http://localhost:4173
-npm run check  # Syntax-check server.mjs and public/app.js
+npm run check  # Syntax-check the app and run the queue tests
 ```
 
 Refresh the browser after changing client files in `public/`. Restart `npm start` after changing `server.mjs`.
@@ -61,12 +73,17 @@ Refresh the browser after changing client files in `public/`. Restart `npm start
 ```text
 year-end-radio/
 ├── server.mjs          # Local HTTP server, chart reader, and yt-dlp playback redirect
+├── playback-source.mjs # Tested selection of the first playable media URL
 ├── package.json        # Start and syntax-check commands
 ├── public/
 │   ├── index.html      # Page structure and controls
 │   ├── app.js          # Chart loading, filtering, favorites, and player interaction
+│   ├── player-state.js # Tested next/back/shuffle/repeat queue logic
 │   ├── styles.css      # Responsive visual styling
 │   └── favicon.svg     # App icon
+├── test/
+│   ├── playback-source.test.js # Playback URL selection tests
+│   └── player-state.test.js    # Queue behavior tests
 └── README.md
 ```
 
@@ -74,7 +91,9 @@ year-end-radio/
 
 Chart data comes from Wikipedia pages named `Billboard Year-End Hot 100 singles of <year>`. This is a convenient public reference, not the official Billboard API; if Wikipedia changes a table layout, the parser in `server.mjs` may need an update.
 
-When you choose Play, the local server asks yt-dlp to find a matching public audio source and resolve a current media URL. Your browser then plays that URL directly, which enables pause and seeking. The app does not download or store music files. Availability varies by source; use yt-dlp and any selected source only for material you are allowed to access.
+When you choose Play, the local server asks yt-dlp for several matching public sources and uses the first one that produces a media URL. It separately asks yt-dlp for a thumbnail, so missing artwork cannot block audio. Searching a small fallback set prevents one restricted search result from blocking an otherwise playable song. After playback begins, the app resolves the next queue item in the background and caches that URL for 15 minutes. This removes most of the lookup delay without downloading the next song’s audio bytes.
+
+Your browser plays the resolved URL directly, which enables pause and seeking. The app does not download or store music files. Availability varies by source; use yt-dlp and any selected source only for material you are allowed to access.
 
 ## Troubleshooting
 
@@ -88,7 +107,7 @@ Restart the app after installing it.
 
 ### A song will not play
 
-The source search may not find a playable match. Try another song, retry later, or update yt-dlp:
+The app automatically tries a small set of search results, because an individual result can be restricted. If none are playable, retry later or update yt-dlp:
 
 ```sh
 brew upgrade yt-dlp
@@ -104,4 +123,4 @@ They are stored in browser-local storage. Clearing site data or using another br
 
 ## Small exercise
 
-Open `public/app.js` and find `favoriteKey`. It currently creates an ID such as `1999:1` from the year and Billboard rank. Add the song title to that key, then star a song and inspect the saved data in your browser’s developer tools.
+Open `public/styles.css` and change `.now-playing-artwork` from `width: 7rem` to `width: 9rem`, then refresh the browser. This shows how the thumbnail aspect ratio and `object-fit: cover` work together.
