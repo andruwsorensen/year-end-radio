@@ -73,7 +73,7 @@ Refresh the browser after changing client files in `public/`. Restart `npm start
 Pushes to `main` are deployed to grow-server after the syntax checks, tests, and production image build pass. The deployed app is private to the Tailscale network:
 
 ```text
-https://grow-server.tail498d29.ts.net:8443
+https://year-end-radio.civet-nessie.ts.net
 ```
 
 See [docs/deployment.md](docs/deployment.md) for the deployment flow, health checks, and grow-server maintenance commands.
