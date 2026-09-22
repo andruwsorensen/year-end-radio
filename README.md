@@ -2,7 +2,7 @@
 
 Year-End Radio is a small local web app for exploring Billboard year-end Hot 100 charts and playing a selected track through your own `yt-dlp` installation.
 
-Start with 1999 or 2000, or enter any year from 1958 through the current year. Starred songs, custom playlists, and repeat mode are saved by the server, so they follow you to every device that opens the same app.
+The app starts with 2025, the most recent completed year-end chart currently available. You can enter any year from 1958 through the current year. Starred songs, custom playlists, and repeat mode are saved by the server, so they follow you to every device that opens the same app.
 
 ## Features
 
@@ -56,6 +56,8 @@ Open [http://localhost:4173](http://localhost:4173). To stop the server, press `
 7. See the selected song’s artwork, title, and artist in the fixed player, then use its controls to go back, skip, or change repeat mode. Playback always continues automatically.
 
 Favorites, custom playlists, and playback settings are stored in `data/library.json` on the server. Browsers keep a last-known local copy only as a fallback if the server cannot be reached. The app refreshes shared data whenever its window regains focus and every 30 seconds while visible.
+
+To change the starting chart in a future year, update both the year input’s `value` and the initial status text in `public/index.html`. Keeping those values together prevents the page from briefly displaying the wrong loading year.
 
 Every browser using one Year-End Radio server shares the same library. The grow-server deployment is limited by Tailscale access rules; there is no separate account system inside the app.
 
