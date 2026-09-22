@@ -19,7 +19,7 @@ Start with 1999 or 2000, or enter any year from 1958 through the current year. S
 - Cycle repeat through off, all, and one.
 - Use the automatic **Favorites** playlist or create custom playlists that can contain songs from different chart years.
 - Browse the automatic **Favorites** playlist by chart rank, from the lowest number upward.
-- Browse roomier song cards in a three-column desktop grid; song actions live under each card’s **•••** menu.
+- Browse roomier song cards in a three-column desktop grid; each card has a direct ☆ favorite button and a nearby **•••** playlist menu.
 - Open **Your stats** to see your favorite year, calculated from all favorites in the shared library.
 
 ## Requirements
@@ -52,7 +52,7 @@ Open [http://localhost:4173](http://localhost:4173). To stop the server, press `
 3. Select **Play** next to a song for chart order, or **Shuffle visible** to randomize and start every currently visible song.
 4. Select ☆ to save a favorite; it changes to ★.
 5. Choose **Favorites** from the Playlist menu to see every favorite across all chart years.
-6. Name and create a custom playlist, then open a song’s **•••** menu to favorite it or manage its playlists.
+6. Name and create a custom playlist, then open a song’s **•••** menu to add or remove it from a playlist. Click **•••** again, press Escape, or click elsewhere to close the menu.
 7. See the selected song’s artwork, title, and artist in the fixed player, then use its controls to go back, skip, or change repeat mode. Playback always continues automatically.
 
 Favorites, custom playlists, and playback settings are stored in `data/library.json` on the server. Browsers keep a last-known local copy only as a fallback if the server cannot be reached. The app refreshes shared data whenever its window regains focus and every 30 seconds while visible.
@@ -69,6 +69,8 @@ npm run check  # Syntax-check the app and run storage, playback, and queue tests
 ```
 
 Refresh the browser after changing client files in `public/`. Restart `npm start` after changing `server.mjs`.
+
+To check the song controls after a client change, start the app, load a chart, and try ☆ and **•••** on the same row. The star should change immediately after the server saves it; the playlist menu should appear beside that row and close with Escape. Run `npm run check` for the project’s automated syntax and logic checks.
 
 ## Deployment
 

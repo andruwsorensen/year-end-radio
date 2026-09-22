@@ -13,10 +13,7 @@ const shuffleVisibleButton = document.querySelector("#shuffle-visible");
 const playlistName = document.querySelector("#playlist-name");
 const playlistNew = document.querySelector("#playlist-new");
 const playlistDelete = document.querySelector("#playlist-delete");
-const playlistDialog = document.querySelector("#playlist-dialog");
-const playlistDialogClose = document.querySelector("#playlist-dialog-close");
-const playlistSongName = document.querySelector("#playlist-song-name");
-const songFavorite = document.querySelector("#song-favorite");
+const songOptions = document.querySelector("#song-options");
 const playlistAddOptions = document.querySelector("#playlist-add-options");
 const playlistEmptyHint = document.querySelector("#playlist-empty-hint");
 const playlistTarget = document.querySelector("#playlist-target");
@@ -42,6 +39,7 @@ let visibleSongs = [];
 let playbackQueue = [];
 let activeSongKey = null;
 let pendingPlaylistSong = null;
+let openMenuButton = null;
 let favorites = loadStoredValue(favoritesStorageKey, {});
 let playlists = loadStoredValue(playlistsStorageKey, {});
 const playbackSettings = loadStoredValue(playbackStorageKey, {});
@@ -143,6 +141,7 @@ function renderPlaybackControls() {
 }
 
 function render() {
+  closeSongOptions();
   renderFavoriteStats();
   renderPlaylists();
   renderPlaybackControls();
@@ -156,7 +155,8 @@ function render() {
   songs.innerHTML = visibleSongs.map((song) => {
     const key = songKey(song);
     const isPlaying = key === activeSongKey && !player.paused;
-    return `<article class="song"><div class="track-control"><button class="play" data-song-key="${key}" aria-label="${isPlaying ? "Pause" : "Play"} ${escapeHtml(song.title)} by ${escapeHtml(song.artist)}"><span aria-hidden="true">${isPlaying ? "❚❚" : "▶"}</span></button><span class="rank">#${song.rank} · ${song.year}</span></div><div class="track-details"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist)}</span></div><button class="song-menu" data-song-key="${key}" aria-label="Options for ${escapeHtml(song.title)}" title="Song options">•••</button></article>`;
+    const starred = Boolean(favorites[key]);
+    return `<article class="song"><div class="track-control"><button class="play" data-song-key="${key}" aria-label="${isPlaying ? "Pause" : "Play"} ${escapeHtml(song.title)} by ${escapeHtml(song.artist)}"><span aria-hidden="true">${isPlaying ? "❚❚" : "▶"}</span></button><span class="rank">#${song.rank} · ${song.year}</span></div><div class="track-details"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist)}</span></div><div class="song-actions"><button class="song-favorite${starred ? " is-favorite" : ""}" data-song-key="${key}" aria-label="${starred ? "Remove" : "Add"} ${escapeHtml(song.title)} ${starred ? "from" : "to"} favorites" aria-pressed="${starred}" title="${starred ? "Remove from" : "Add to"} favorites">${starred ? "★" : "☆"}</button><button class="song-menu" data-song-key="${key}" aria-label="Playlist options for ${escapeHtml(song.title)}" aria-controls="song-options" aria-expanded="false" title="Playlist options">•••</button></div></article>`;
   }).join("");
   if (!visibleSongs.length) songs.innerHTML = "<p>No songs match this playlist and filter.</p>";
 }
@@ -259,11 +259,36 @@ function moveInQueue(direction, automatic = false) {
   playSong(playbackQueue[nextIndex], automatic && repeatMode === "one");
 }
 
+// Return the shared menu to the page before song rows are redrawn.
+function closeSongOptions(restoreFocus = false) {
+  if (!openMenuButton) return;
+  if (restoreFocus) openMenuButton.focus();
+  openMenuButton.setAttribute("aria-expanded", "false");
+  openMenuButton.closest(".song").classList.remove("has-open-menu");
+  songOptions.hidden = true;
+  songOptions.classList.remove("open-up");
+  document.body.append(songOptions);
+  openMenuButton = null;
+  pendingPlaylistSong = null;
+}
+
+function openSongOptions(button, song) {
+  closeSongOptions();
+  pendingPlaylistSong = song;
+  openMenuButton = button;
+  const row = button.closest(".song");
+  row.append(songOptions);
+  row.classList.add("has-open-menu");
+  button.setAttribute("aria-expanded", "true");
+  updateSongOptions();
+  songOptions.hidden = false;
+  // Place the menu above songs near the viewport bottom so every control stays reachable.
+  const visibleBottom = document.querySelector(".player-dock").getBoundingClientRect().top;
+  songOptions.classList.toggle("open-up", songOptions.getBoundingClientRect().bottom > visibleBottom);
+}
+
 function updateSongOptions() {
   if (!pendingPlaylistSong) return;
-  const starred = Boolean(favorites[songKey(pendingPlaylistSong)]);
-  songFavorite.textContent = starred ? "★ Remove from favorites" : "☆ Add to favorites";
-  songFavorite.setAttribute("aria-pressed", String(starred));
   const inCustomPlaylist = playlistSelect.value.startsWith("custom:");
   playlistRemove.hidden = !inCustomPlaylist;
   const hasCustomPlaylists = Boolean(playlistTarget.options.length);
@@ -278,7 +303,15 @@ filter.addEventListener("input", render);
 favoritesOnly.addEventListener("change", render);
 favoriteStatsOpen.addEventListener("click", () => favoriteStatsDialog.showModal());
 favoriteStatsClose.addEventListener("click", () => favoriteStatsDialog.close());
-playlistDialogClose.addEventListener("click", () => playlistDialog.close());
+document.addEventListener("click", (event) => {
+  if (openMenuButton && !songOptions.contains(event.target) && !openMenuButton.contains(event.target)) closeSongOptions();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && openMenuButton) {
+    closeSongOptions(true);
+    event.preventDefault();
+  }
+});
 
 playlistSelect.addEventListener("change", () => {
   const count = selectedSource().length;
@@ -327,33 +360,34 @@ playlistDelete.addEventListener("click", async () => {
 playlistSave.addEventListener("click", async () => {
   const target = playlists[playlistTarget.value];
   if (!target || !pendingPlaylistSong) return;
+  const song = pendingPlaylistSong;
+  const id = playlistTarget.value;
   try {
-    await performLibraryAction({ type: "addToPlaylist", id: playlistTarget.value, song: pendingPlaylistSong });
-    status.textContent = `Added ${pendingPlaylistSong.title} to ${target.name}.`;
-    playlistDialog.close();
+    await performLibraryAction({ type: "addToPlaylist", id, song });
+    status.textContent = `Added ${song.title} to ${target.name}.`;
+    closeSongOptions();
     render();
   } catch (error) { status.textContent = error.message; }
 });
 
-songFavorite.addEventListener("click", async () => {
-  if (!pendingPlaylistSong) return;
-  const key = songKey(pendingPlaylistSong);
+async function toggleSongFavorite(song) {
+  const key = songKey(song);
   try {
-    await performLibraryAction({ type: "toggleFavorite", song: pendingPlaylistSong });
-    status.textContent = favorites[key] ? `Added ${pendingPlaylistSong.title} to Favorites.` : `Removed ${pendingPlaylistSong.title} from Favorites.`;
-    updateSongOptions();
+    await performLibraryAction({ type: "toggleFavorite", song });
+    status.textContent = favorites[key] ? `Added ${song.title} to Favorites.` : `Removed ${song.title} from Favorites.`;
     render();
   } catch (error) { status.textContent = error.message; }
-});
+}
 
 playlistRemove.addEventListener("click", async () => {
   if (!pendingPlaylistSong || !playlistSelect.value.startsWith("custom:")) return;
   const id = playlistSelect.value.slice(7);
   const name = playlists[id].name;
+  const song = pendingPlaylistSong;
   try {
-    await performLibraryAction({ type: "removeFromPlaylist", id, song: pendingPlaylistSong });
-    status.textContent = `Removed ${pendingPlaylistSong.title} from ${name}.`;
-    playlistDialog.close();
+    await performLibraryAction({ type: "removeFromPlaylist", id, song });
+    status.textContent = `Removed ${song.title} from ${name}.`;
+    closeSongOptions();
     render();
   } catch (error) { status.textContent = error.message; }
 });
@@ -363,11 +397,14 @@ songs.addEventListener("click", (event) => {
   if (!song) return;
 
   if (event.target.closest(".song-menu")) {
-    pendingPlaylistSong = song;
-    playlistSongName.textContent = `${song.title} — ${song.artist}`;
-    renderPlaylists();
-    updateSongOptions();
-    playlistDialog.showModal();
+    const button = event.target.closest(".song-menu");
+    if (button === openMenuButton) closeSongOptions();
+    else openSongOptions(button, song);
+    return;
+  }
+
+  if (event.target.closest(".song-favorite")) {
+    toggleSongFavorite(song);
     return;
   }
 

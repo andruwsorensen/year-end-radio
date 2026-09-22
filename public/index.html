@@ -37,11 +37,8 @@
       <div class="stats-dialog-heading"><h2 id="favorite-stats-title">Your favorite years</h2><button id="favorite-stats-close" class="dialog-close" aria-label="Close stats">×</button></div>
       <section id="favorite-stats" class="favorite-stats" aria-live="polite"></section>
     </dialog>
-    <dialog id="playlist-dialog" aria-labelledby="playlist-dialog-title">
-      <div class="stats-dialog-heading"><h2 id="playlist-dialog-title">Song options</h2><button id="playlist-dialog-close" class="dialog-close" aria-label="Close song options">×</button></div>
-      <p id="playlist-song-name" class="playlist-song-name"></p>
+    <div id="song-options" class="song-options" aria-label="Song playlist options" hidden>
       <div class="song-option-actions">
-        <button id="song-favorite" class="favorite-option"></button>
         <div id="playlist-add-options" class="playlist-add-options">
           <label>Choose a playlist <select id="playlist-target"></select></label>
           <button id="playlist-save">Add to playlist</button>
@@ -49,7 +46,7 @@
         <p id="playlist-empty-hint" class="playlist-empty-hint" hidden>Create a custom playlist above, then return here to add this song.</p>
         <button id="playlist-remove" class="danger-button">Remove from this playlist</button>
       </div>
-    </dialog>
+    </div>
     <section class="player-dock" aria-label="Playback controls">
       <div class="now-playing" aria-live="polite">
         <div id="now-playing-artwork" class="now-playing-artwork" role="img" aria-label="No song selected">
