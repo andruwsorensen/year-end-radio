@@ -81,6 +81,8 @@ To check the current-song color, start playback, pause it, then skip to the next
 
 To check year ranges, choose 1999 through 2000 and select **Load charts**. The status should report 200 songs (when both source pages provide 100), and the song cards should include both years. A reversed range should show a validation message without loading.
 
+Large ranges load one year at a time. Watch the status to see how many charts have been checked and how many songs are ready; successful years appear before the full range finishes. The server retries temporary source errors and remembers successful charts until it restarts. If a year still fails, the remaining years continue loading, and selecting **Load charts** again retries the failed year. Run `npm run check` to test retry and cache behavior without contacting Wikipedia.
+
 ## Deployment
 
 Pushes to `main` are deployed to grow-server after the syntax checks, tests, and production image build pass. The deployed app is private to the Tailscale network:
@@ -96,6 +98,7 @@ See [docs/deployment.md](docs/deployment.md) for the deployment flow, health che
 ```text
 year-end-radio/
 ├── server.mjs          # Local HTTP server, chart reader, and yt-dlp playback redirect
+├── chart-source.mjs    # Chart lookup, retry, and in-memory cache
 ├── library-store.mjs   # Validated, atomic shared-library persistence
 ├── playback-source.mjs # Tested selection of the first playable media URL
 ├── package.json        # Start and syntax-check commands

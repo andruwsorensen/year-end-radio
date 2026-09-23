@@ -185,20 +185,28 @@ async function loadChart() {
 
   const rangeLabel = yearRangeLabel(selectedYears);
   status.textContent = `Loading ${rangeLabel}…`;
-  songs.innerHTML = "";
+  songs.innerHTML = "<p>Loading charts…</p>";
   load.disabled = true;
   try {
     const loadedSongs = [];
-    // Small batches make long ranges faster without flooding the chart source.
-    for (let index = 0; index < selectedYears.length; index += 4) {
-      const batch = selectedYears.slice(index, index + 4);
-      loadedSongs.push(...(await Promise.all(batch.map(fetchChart))).flat());
+    const failedYears = [];
+    // Load one year at a time so large ranges do not flood the chart source.
+    for (let index = 0; index < selectedYears.length; index += 1) {
+      const batch = selectedYears.slice(index, index + 1);
+      const results = await Promise.allSettled(batch.map(fetchChart));
       if (loadId !== chartLoadId) return;
-      status.textContent = `Loading ${rangeLabel}… ${Math.min(index + batch.length, selectedYears.length)} of ${selectedYears.length} charts`;
+      results.forEach((result, batchIndex) => {
+        if (result.status === "fulfilled") loadedSongs.push(...result.value);
+        else failedYears.push(batch[batchIndex]);
+      });
+      chart = loadedSongs;
+      playlistSelect.value = "chart";
+      if (chart.length) render();
+      status.textContent = `Loading ${rangeLabel}… ${Math.min(index + batch.length, selectedYears.length)} of ${selectedYears.length} charts checked; ${chart.length} songs ready`;
     }
-    chart = loadedSongs;
-    playlistSelect.value = "chart";
-    status.textContent = `${chart.length} songs from ${rangeLabel}`;
+    status.textContent = failedYears.length
+      ? `${chart.length} songs from ${rangeLabel}. Could not load ${failedYears.join(", ")}; try Load charts again.`
+      : `${chart.length} songs from ${rangeLabel}`;
     render();
   } catch (error) {
     if (loadId === chartLoadId) status.textContent = error.message;

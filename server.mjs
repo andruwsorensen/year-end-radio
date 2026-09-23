@@ -4,6 +4,7 @@ import { extname, join, normalize } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { firstMediaUrl, MediaUrlCache } from "./playback-source.mjs";
 import { LibraryStore, LibraryValidationError } from "./library-store.mjs";
+import { createChartLoader } from "./chart-source.mjs";
 
 const port = Number(process.env.PORT || 4173);
 const publicDir = join(process.cwd(), "public");
@@ -11,6 +12,7 @@ const libraryStore = new LibraryStore(process.env.LIBRARY_FILE || join(process.c
 const ytdlpAvailable = spawnSync("yt-dlp", ["--version"], { stdio: "ignore" }).status === 0;
 const mediaUrlCache = new MediaUrlCache(15 * 60 * 1000);
 const thumbnailUrlCache = new MediaUrlCache(24 * 60 * 60 * 1000);
+const chartFor = createChartLoader();
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml" };
 
 function sendJson(res, status, data) {
@@ -41,22 +43,6 @@ async function handleLibrary(req, res) {
     const status = error instanceof LibraryValidationError ? 422 : 500;
     sendJson(res, status, { error: status === 500 ? "The shared library could not be saved." : error.message });
   }
-}
-
-function decodeHtml(value) {
-  return value.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/^"|"$/g, "").trim();
-}
-
-async function chartFor(year) {
-  if (!/^\d{4}$/.test(year) || Number(year) < 1958 || Number(year) > new Date().getFullYear()) throw new Error("Choose a year from 1958 through the current year.");
-  const url = `https://en.wikipedia.org/wiki/Billboard_Year-End_Hot_100_singles_of_${year}`;
-  const response = await fetch(url, { headers: { "user-agent": "YearEndRadio/0.1 (personal local app)" } });
-  if (!response.ok) throw new Error(`No chart source was found for ${year}.`);
-  const html = await response.text();
-  const rows = [...html.matchAll(/<tr[^>]*>\s*<td[^>]*>(\d+)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<\/tr>/g)];
-  const songs = rows.map((match) => ({ rank: Number(match[1]), title: decodeHtml(match[2]), artist: decodeHtml(match[3]) })).filter((song) => song.rank >= 1 && song.rank <= 100 && song.title && song.artist);
-  if (songs.length < 50) throw new Error("The chart source changed its layout; please try another year.");
-  return songs.slice(0, 100);
 }
 
 function resolveAudioUrl(title, artist) {
