@@ -102,7 +102,7 @@ year-end-radio/
 ├── library-store.mjs   # Validated, atomic shared-library persistence
 ├── playback-source.mjs # Tested selection of the first playable media URL
 ├── package.json        # Start and syntax-check commands
-├── Dockerfile          # Node 22 image with yt-dlp
+├── Dockerfile          # Node 22 image with yt-dlp and the server modules
 ├── compose.production.yml # Loopback-only grow-server service
 ├── docs/
 │   └── deployment.md # CI/CD and server operations guide

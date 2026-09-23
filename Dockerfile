@@ -8,7 +8,7 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY package.json ./
-COPY server.mjs playback-source.mjs library-store.mjs ./
+COPY server.mjs chart-source.mjs playback-source.mjs library-store.mjs ./
 COPY public ./public
 
 RUN mkdir -p /app/data && chown node:node /app/data
