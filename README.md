@@ -1,19 +1,20 @@
 # Year-End Radio
 
-Year-End Radio is a small local web app for exploring Billboard year-end Hot 100 charts and playing a selected track through your own `yt-dlp` installation.
+Year-End Radio is a small local web app for exploring Billboard year-end Hot 100 charts across a selected range and playing a track through your own `yt-dlp` installation.
 
-The app starts with 2025, the most recent completed year-end chart currently available. You can enter any year from 1958 through the current year. Starred songs, custom playlists, and repeat mode are saved by the server, so they follow you to every device that opens the same app.
+The app starts with 2025, the most recent completed year-end chart currently available. You can select an inclusive range from 1958 through the current year; choosing 2025 through 2025 loads just that chart. Starred songs, custom playlists, and repeat mode are saved by the server, so they follow you to every device that opens the same app.
 
 ## Features
 
-- Load up to 100 songs from a Billboard year-end Hot 100 chart.
-- Filter the current chart by title or artist.
+- Load up to 100 songs per year from a selected range of Billboard year-end Hot 100 charts.
+- Filter the loaded charts by title or artist.
 - Use a compact far-left play/pause control; the active song displays a pause icon.
+- Find the current song by its teal card, including while playback is paused.
 - Play a selected public audio source with local `yt-dlp`.
 - See the current song’s artwork, title, and artist together in the fixed player, with a fallback when no thumbnail is available.
 - Scrub within a track: the app redirects the browser to yt-dlp’s resolved media URL instead of piping a one-way stream.
 - Prepare the next queue item in the background so skips and continuous playback start faster.
-- Save shared favorites and narrow the current year with **Favorites only**.
+- Save shared favorites and narrow the current year range with **Favorites only**.
 - Play continuously through the visible songs by default.
 - Start a no-duplicates shuffled queue from every song in the current view, then skip forward or back through that order.
 - Cycle repeat through off, all, and one.
@@ -47,7 +48,7 @@ Open [http://localhost:4173](http://localhost:4173). To stop the server, press `
 
 ## Use it
 
-1. Enter a year and select **Load top 100**.
+1. Enter a **From year** and **Through year**, then select **Load charts**. The range includes both endpoint years.
 2. Filter by title or artist if needed.
 3. Select **Play** next to a song for chart order, or **Shuffle visible** to randomize and start every currently visible song.
 4. Select ☆ to save a favorite; it changes to ★.
@@ -57,7 +58,7 @@ Open [http://localhost:4173](http://localhost:4173). To stop the server, press `
 
 Favorites, custom playlists, and playback settings are stored in `data/library.json` on the server. Browsers keep a last-known local copy only as a fallback if the server cannot be reached. The app refreshes shared data whenever its window regains focus and every 30 seconds while visible.
 
-To change the starting chart in a future year, update both the year input’s `value` and the initial status text in `public/index.html`. Keeping those values together prevents the page from briefly displaying the wrong loading year.
+To change the starting chart in a future year, update both year inputs’ `value` attributes and the initial status text in `public/index.html`. Keeping those values together prevents the page from briefly displaying the wrong loading year.
 
 Every browser using one Year-End Radio server shares the same library. The grow-server deployment is limited by Tailscale access rules; there is no separate account system inside the app.
 
@@ -72,7 +73,13 @@ npm run check  # Syntax-check the app and run storage, playback, and queue tests
 
 Refresh the browser after changing client files in `public/`. Restart `npm start` after changing `server.mjs`.
 
+The stylesheet is organized by interface area in `public/styles.css`. Keep related selectors together under the multiline section banners with dashed divider lines, use one declaration per line, and add responsive overrides only in the media-query section at the end.
+
 To check the song controls after a client change, start the app, load a chart, and try ☆ and **•••** on the same row. The star should change immediately after the server saves it; the playlist menu should appear beside that row and close with Escape. Run `npm run check` for the project’s automated syntax and logic checks.
+
+To check the current-song color, start playback, pause it, then skip to the next song. The teal card should stay on the selected song while paused and move when the next song starts. The color comes from the `is-current` class in `public/app.js` and the matching rule in `public/styles.css`.
+
+To check year ranges, choose 1999 through 2000 and select **Load charts**. The status should report 200 songs (when both source pages provide 100), and the song cards should include both years. A reversed range should show a validation message without loading.
 
 ## Deployment
 

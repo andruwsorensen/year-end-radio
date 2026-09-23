@@ -1,6 +1,8 @@
 import { nextPreparationIndex, nextQueueIndex, shuffledCopy } from "./player-state.js";
+import { yearRangeLabel, yearsInRange } from "./chart-range.js";
 
-const year = document.querySelector("#year");
+const yearStart = document.querySelector("#year-start");
+const yearEnd = document.querySelector("#year-end");
 const load = document.querySelector("#load");
 const filter = document.querySelector("#filter");
 const favoritesOnly = document.querySelector("#favorites-only");
@@ -35,6 +37,7 @@ const favoritesStorageKey = "year-end-radio-favorites";
 const playlistsStorageKey = "year-end-radio-playlists";
 const playbackStorageKey = "year-end-radio-playback";
 let chart = [];
+let chartLoadId = 0;
 let visibleSongs = [];
 let playbackQueue = [];
 let activeSongKey = null;
@@ -106,7 +109,7 @@ function renderPlaylists(selectedValue = playlistSelect.value || "chart") {
     .sort(([, first], [, second]) => first.name.localeCompare(second.name))
     .map(([id, playlist]) => `<option value="custom:${id}">${escapeHtml(playlist.name)}</option>`)
     .join("");
-  playlistSelect.innerHTML = `<option value="chart">Current chart</option><option value="favorites">Favorites (${Object.keys(favorites).length})</option>${customOptions}`;
+  playlistSelect.innerHTML = `<option value="chart">Current year range</option><option value="favorites">Favorites (${Object.keys(favorites).length})</option>${customOptions}`;
   playlistSelect.value = [...playlistSelect.options].some((option) => option.value === selectedValue) ? selectedValue : "chart";
   playlistDelete.disabled = !playlistSelect.value.startsWith("custom:");
 
@@ -154,25 +157,54 @@ function render() {
   shuffleVisibleButton.textContent = visibleSongs.length ? `Shuffle visible (${visibleSongs.length})` : "Shuffle visible";
   songs.innerHTML = visibleSongs.map((song) => {
     const key = songKey(song);
-    const isPlaying = key === activeSongKey && !player.paused;
+    const isCurrent = key === activeSongKey;
+    const isPlaying = isCurrent && !player.paused;
     const starred = Boolean(favorites[key]);
-    return `<article class="song"><div class="track-control"><button class="play" data-song-key="${key}" aria-label="${isPlaying ? "Pause" : "Play"} ${escapeHtml(song.title)} by ${escapeHtml(song.artist)}"><span aria-hidden="true">${isPlaying ? "❚❚" : "▶"}</span></button><span class="rank">#${song.rank} · ${song.year}</span></div><div class="track-details"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist)}</span></div><div class="song-actions"><button class="song-favorite${starred ? " is-favorite" : ""}" data-song-key="${key}" aria-label="${starred ? "Remove" : "Add"} ${escapeHtml(song.title)} ${starred ? "from" : "to"} favorites" aria-pressed="${starred}" title="${starred ? "Remove from" : "Add to"} favorites">${starred ? "★" : "☆"}</button><button class="song-menu" data-song-key="${key}" aria-label="Playlist options for ${escapeHtml(song.title)}" aria-controls="song-options" aria-expanded="false" title="Playlist options">•••</button></div></article>`;
+    return `<article class="song${isCurrent ? " is-current" : ""}"${isCurrent ? ' aria-current="true"' : ""}><div class="track-control"><button class="play" data-song-key="${key}" aria-label="${isPlaying ? "Pause" : "Play"} ${escapeHtml(song.title)} by ${escapeHtml(song.artist)}"><span aria-hidden="true">${isPlaying ? "❚❚" : "▶"}</span></button><span class="rank">#${song.rank} · ${song.year}</span></div><div class="track-details"><strong>${escapeHtml(song.title)}</strong><span>${escapeHtml(song.artist)}</span></div><div class="song-actions"><button class="song-favorite${starred ? " is-favorite" : ""}" data-song-key="${key}" aria-label="${starred ? "Remove" : "Add"} ${escapeHtml(song.title)} ${starred ? "from" : "to"} favorites" aria-pressed="${starred}" title="${starred ? "Remove from" : "Add to"} favorites">${starred ? "★" : "☆"}</button><button class="song-menu" data-song-key="${key}" aria-label="Playlist options for ${escapeHtml(song.title)}" aria-controls="song-options" aria-expanded="false" title="Playlist options">•••</button></div></article>`;
   }).join("");
   if (!visibleSongs.length) songs.innerHTML = "<p>No songs match this playlist and filter.</p>";
 }
 
+async function fetchChart(selectedYear) {
+  const response = await fetch(`/api/chart?year=${encodeURIComponent(selectedYear)}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(`${selectedYear}: ${data.error}`);
+  return data.songs.map((song) => ({ ...song, year: selectedYear }));
+}
+
 async function loadChart() {
-  status.textContent = `Loading ${year.value}…`;
-  songs.innerHTML = "";
+  const loadId = ++chartLoadId;
+  let selectedYears;
   try {
-    const response = await fetch(`/api/chart?year=${encodeURIComponent(year.value)}`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    chart = data.songs.map((song) => ({ ...song, year: Number(year.value) }));
+    selectedYears = yearsInRange(yearStart.value, yearEnd.value);
+  } catch (error) {
+    status.textContent = error.message;
+    load.disabled = false;
+    return;
+  }
+
+  const rangeLabel = yearRangeLabel(selectedYears);
+  status.textContent = `Loading ${rangeLabel}…`;
+  songs.innerHTML = "";
+  load.disabled = true;
+  try {
+    const loadedSongs = [];
+    // Small batches make long ranges faster without flooding the chart source.
+    for (let index = 0; index < selectedYears.length; index += 4) {
+      const batch = selectedYears.slice(index, index + 4);
+      loadedSongs.push(...(await Promise.all(batch.map(fetchChart))).flat());
+      if (loadId !== chartLoadId) return;
+      status.textContent = `Loading ${rangeLabel}… ${Math.min(index + batch.length, selectedYears.length)} of ${selectedYears.length} charts`;
+    }
+    chart = loadedSongs;
     playlistSelect.value = "chart";
-    status.textContent = `${chart.length} songs from ${year.value}`;
+    status.textContent = `${chart.length} songs from ${rangeLabel}`;
     render();
-  } catch (error) { status.textContent = error.message; }
+  } catch (error) {
+    if (loadId === chartLoadId) status.textContent = error.message;
+  } finally {
+    if (loadId === chartLoadId) load.disabled = false;
+  }
 }
 
 function findVisibleSong(key) {
@@ -298,7 +330,8 @@ function updateSongOptions() {
 }
 
 load.addEventListener("click", loadChart);
-year.addEventListener("change", loadChart);
+yearStart.addEventListener("change", loadChart);
+yearEnd.addEventListener("change", loadChart);
 filter.addEventListener("input", render);
 favoritesOnly.addEventListener("change", render);
 favoriteStatsOpen.addEventListener("click", () => favoriteStatsDialog.showModal());
