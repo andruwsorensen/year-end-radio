@@ -22,6 +22,7 @@ The app starts with 2025, the most recent completed year-end chart currently ava
 - Browse the automatic **Favorites** playlist by chart rank, from the lowest number upward.
 - Browse roomier song cards in a three-column desktop grid; each card has a direct ☆ favorite button and a nearby **•••** playlist menu.
 - Open **Your stats** to see your favorite year, calculated from all favorites in the shared library.
+- Select **Export favorites** to download every saved favorite as a CSV file.
 
 ## Requirements
 
@@ -53,6 +54,7 @@ Open [http://localhost:4173](http://localhost:4173). To stop the server, press `
 3. Select **Play** next to a song for chart order, or **Shuffle visible** to randomize and start every currently visible song.
 4. Select ☆ to save a favorite; it changes to ★.
 5. Choose **Favorites** from the Playlist menu to see every favorite across all chart years.
+   Select **Export favorites** to download the whole list, regardless of the selected chart, playlist, or song filter. The file contains year, rank, title, and artist in Favorites playlist order. If the shared library is unavailable, the export uses this browser's last saved copy.
 6. Name and create a custom playlist, then open a song’s **•••** menu to add or remove it from a playlist. Click **•••** again, press Escape, or click elsewhere to close the menu.
 7. See the selected song’s artwork, title, and artist in the fixed player, then use its controls to go back, skip, or change repeat mode. Playback always continues automatically.
 
@@ -76,6 +78,8 @@ Refresh the browser after changing client files in `public/`. Restart `npm start
 The stylesheet is organized by interface area in `public/styles.css`. Keep related selectors together under the multiline section banners with dashed divider lines, use one declaration per line, and add responsive overrides only in the media-query section at the end.
 
 To check the song controls after a client change, start the app, load a chart, and try ☆ and **•••** on the same row. The star should change immediately after the server saves it; the playlist menu should appear beside that row and close with Escape. Run `npm run check` for the project’s automated syntax and logic checks.
+
+To check CSV export, save a favorite, select **Export favorites**, and open `year-end-radio-favorites.csv` from your Downloads folder. The file should have `year,rank,title,artist` columns and include every favorite, even if the current chart or search hides it. Run `node --test test/favorites-csv.test.js` to check ordering, CSV quoting, and spreadsheet-safe text without starting the server.
 
 To check the current-song color, start playback, pause it, then skip to the next song. The teal card should stay on the selected song while paused and move when the next song starts. The color comes from the `is-current` class in `public/app.js` and the matching rule in `public/styles.css`.
 

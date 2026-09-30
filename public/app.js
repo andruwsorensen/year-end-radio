@@ -1,5 +1,6 @@
 import { nextPreparationIndex, nextQueueIndex, shuffledCopy } from "./player-state.js";
 import { yearRangeLabel, yearsInRange } from "./chart-range.js";
+import { favoritesCsv } from "./favorites-csv.js";
 
 const yearStart = document.querySelector("#year-start");
 const yearEnd = document.querySelector("#year-end");
@@ -7,6 +8,7 @@ const load = document.querySelector("#load");
 const filter = document.querySelector("#filter");
 const favoritesOnly = document.querySelector("#favorites-only");
 const favoriteStatsOpen = document.querySelector("#favorite-stats-open");
+const favoritesExport = document.querySelector("#favorites-export");
 const favoriteStatsDialog = document.querySelector("#favorite-stats-dialog");
 const favoriteStatsClose = document.querySelector("#favorite-stats-close");
 const favoriteStats = document.querySelector("#favorite-stats");
@@ -146,6 +148,7 @@ function renderPlaybackControls() {
 function render() {
   closeSongOptions();
   renderFavoriteStats();
+  favoritesExport.disabled = !Object.keys(favorites).length;
   renderPlaylists();
   renderPlaybackControls();
   const query = filter.value.trim().toLowerCase();
@@ -344,6 +347,28 @@ filter.addEventListener("input", render);
 favoritesOnly.addEventListener("change", render);
 favoriteStatsOpen.addEventListener("click", () => favoriteStatsDialog.showModal());
 favoriteStatsClose.addEventListener("click", () => favoriteStatsDialog.close());
+favoritesExport.addEventListener("click", async () => {
+  let usingSavedCopy = false;
+  try {
+    await refreshSharedLibrary({ quiet: true });
+  } catch {
+    usingSavedCopy = true;
+  }
+  if (!Object.keys(favorites).length) {
+    status.textContent = "There are no favorites to export.";
+    return;
+  }
+  const file = new Blob(["\uFEFF", favoritesCsv(favorites)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "year-end-radio-favorites.csv";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  status.textContent = `Exported ${Object.keys(favorites).length} favorites to CSV${usingSavedCopy ? " from this browser's last saved copy" : ""}.`;
+});
 document.addEventListener("click", (event) => {
   if (openMenuButton && !songOptions.contains(event.target) && !openMenuButton.contains(event.target)) closeSongOptions();
 });
